@@ -21,14 +21,14 @@
 #define NN(p) (A/sqrt(1.0 - (E2)*pow(sin(p*PI/180.0), 2)))
 #define NUM  3
 
-#define Kp_R 1.0;
-#define Ki_R 1.0;
-#define Kp_D 1.0;
+#define Kp_R 1.0
+#define Ki_R 1.0
+#define Kp_D 1.0
 #define T_speed 100
 
 typedef struct {
-  double matrix3TO3[3][3];
-  double vector3TO1[3];         //Z軸との型が違うのでキャストしとけ
+  float matrix3TO3[3][3];
+  float vector3TO1[3];         //Z軸との型が違うのでキャストしとけ
 }
 VECTOR;
 
@@ -39,15 +39,15 @@ typedef struct {
 GEDE;
 
 typedef struct {
-  double X;
-  double Y;
-  double Z;
+  float X;
+  float Y;
+  float Z;
 }
 ECEF;
 
 typedef struct {
-  double E;
-  double N;
+  float E;
+  float N;
   long unsigned int U;
 }
 ENU;
@@ -65,7 +65,7 @@ class Run {
   public :
     float get_lineDistance(void);
     float get_lineAngle(void);
-    float get_lineGyro(double gyro);
+    float get_lineGyro(float gyro);
     float get_angle(float vec1X, float vec1Y, float vec2X, float vec2Y);
     float get_angle(GEDE origin, GEDE dest);
     float get_targetValue(void);
@@ -78,14 +78,14 @@ class Run {
 
   public :
     float batt_voltage(void);
-    double getDt(void);
+    float getDt(void);
 
   public :
     void update_PolarCoordinates(GEDE current, float Dseata);
-    void update_targetValue(float gyro, double dt);
+    void update_targetValue(float gyro, float dt);
 
   public :
-    ECEF GEDE2ECEF(GEDE cod, double height);
+    ECEF GEDE2ECEF(GEDE cod, float height);
     GEDE ECEF2GEDE(ECEF ec);
     ENU ECEF2ENU(ECEF origin, ECEF dest);
     ENU GEDE2ENU(GEDE origin, GEDE dest);
@@ -99,17 +99,6 @@ class Run {
     float distanceOFgoal2current(GEDE current);
     float distanceOFgede2gede(GEDE origin, GEDE dest);
     void improveCurrentCoordinates(GEDE current);
-
-  public :
-    double kalmanFilter_DistanceX(double accel, double distance, double dt);
-    double kalmanFilter_DistanceY(double accel, double distance, double dt);
-
-  public:
-    void rotx(double rota[3][3], double sita);  //deg
-    void roty(double rota[3][3], double sita);  //deg
-    void rotz(double rota[3][3], double sita);  //deg
-    void matmat(double tmp[3][3], double mat1[3][3], double mat2[3][3]);
-    ENU matvec(double mat[3][3], ECEF vector);
 
   public:
     float last_targetValue;

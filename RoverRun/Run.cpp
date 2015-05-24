@@ -44,12 +44,6 @@ float Run::get_lineAngle(void)
   return (rover.angle - goal.angle);
 }
 
-
-float Run::get_lineGyro(floatgyro)
-{
-  return (last_targetValue - gyro);
-}
-
 float Run::get_angle(float vec1X, float vec1Y, float vec2X, float vec2Y)
 {
   float sin_v, cos_v;
@@ -180,12 +174,12 @@ float Run::batt_voltage(void)
   return (batt_voltage);
 }
 
-floatRun::getDt(void)
+float Run::getDt(void)
 {
   static unsigned long int lastTime = 0.0;
 
   long nowTime = micros();
-  floattime = (double)(nowTime - lastTime);
+  float time = (double)(nowTime - lastTime);
   time = max(time, 20); //timeは20[us]以上
   time /= 1000000;  //[usec] => [sec]
   lastTime = nowTime;
@@ -199,164 +193,15 @@ void Run::update_PolarCoordinates(GEDE current, float Dseata)
   rover.angle = get_angle(LANDING, current);
 }
 
-void Run::update_targetValue(float gyro, floatdt)
+void Run::update_targetValue(float gyro, float dt)
 {
-  const floatKd = 0.01; //Pゲイン
-  const floatKa = 0.05; //Iゲイン（多すぎると暴走します）
-  const floatKg = 0.01; //Dゲイン
+  const float Kd = 0.01; //Pゲイン
+  const float Ka = 0.05; //Iゲイン（多すぎると暴走します）
+  const float Kg = 0.01; //Dゲイン
 
   last_targetValue = gyro + dt * (-Kd * get_lineDistance() - Ka * get_lineAngle() - Kg * get_lineGyro(gyro));
   last_targetValue = constrain(last_targetValue, -70.0, 70.0);
 }
-
-/*
-ECEF Run::GEDE2ECEF(GEDE cod, floatheight)
-{
-  ECEF ecef;
-
-  ecef.X = (NN(cod.LAT)+height)*cos(cod.LAT*PI/180)*cos(cod.LON*PI/180);
-  ecef.Y = (NN(cod.LAT)+height)*cos(cod.LAT*PI/180)*sin(cod.LON*PI/180);
-  ecef.Z = (NN(cod.LAT)*(1-E2)+height)*sin(cod.LAT*PI/180);
-  return ecef;
-}
-
-GEDE Run::ECEF2GEDE(ECEF ec)
-{
-  GEDE blh;
-  int i = 0;
-  floatphi, ramda, height, p;
-  floatx, y, z;
-  floatsita;
-
-  x = ec.X, y = ec.Y, z = ec.Z;
-  p = sqrt(x*x + y*y);
-  sita = (180/PI) * atan2(z*A, p*B);
-  --- 緯度
-  phi = (180/PI) * atan2(z+ED2*B*(pow(sin(sita*PI/180), 3)),(p-E2*A*(pow(cos(sita*PI/180), 3))));
-  --- 経度
-  ramda = (180/PI) * atan2(y,x);
-  /*--- 高さ
-  height = (p / cos(phi*PI/180)) - NN(phi);
-  blh.LAT = phi;
-  blh.LON = ramda;
-  return(blh);
-}
-
-ENU Run::ECEF2ENU(ECEF origin, ECEF dest)
-{
-  int i, j;
-  GEDE blh;
-  ECEF mov;
-  ENU ret;
-  floatrotyp[3][3], rotzp1[3][3], rotzp2[3][3];
-  floatmat_conv1[3][3] = {
-  };
-  floatmat_conv2[3][3] = {
-  };
-
-  blh = ECEF2GEDE(origin);
-  rotz(rotzp1,90.0);
-  roty(rotyp, 90.0 - blh.LAT);
-  rotz(rotzp2,blh.LON);
-  matmat(mat_conv1, rotzp1, rotyp);
-  matmat(mat_conv2, mat_conv1, rotzp2);
-  mov.X = dest.X - origin.X;
-  mov.Y = dest.Y - origin.Y;
-  mov.Z = dest.Z - origin.Z;
-  ret = matvec(mat_conv2, mov);
-
-  return ret;
-}
-
-ENU Run::GEDE2ENU(GEDE origin, GEDE dest)
-{
-  GEDE aLAT, bLAT, aLON, bLON;
-  ENU tmp_enu;
-  float d1X, d1Y, d2X, d2Y;
-  /*
-  ecef_o = GEDE2ECEF(origin, hifgh);
-  ecef = GEDE2ECEF(dest, high);
-  tmp_enu = ECEF2ENU(ecef_o, ecef);
-
-
-  return(tmp_enu);
-}
-
-void Run::setCoordinates(char *str, float flat, float flon)
-{
-  if(str == "origin"){
-    ORIGIN.LAT = flat;
-    ORIGIN.LON = flon;
-  }
-  else if(str == "goal"){
-    GOAL.LAT = flat;
-    GOAL.LON = flon;
-  }
-  else if(str == "landing"){
-    LANDING.LAT = flat;
-    LANDING.LON = flon;
-  }
-}
-
-void Run::setENU(char *str, ENU enu)
-{
-  if(str == "origin"){
-    originENU.E = enu.E;
-    originENU.N = enu.N;
-    originENU.U = enu.U;
-  }
-  else if(str == "goal"){
-    goalENU.E = enu.E;
-    goalENU.N = enu.N;
-    goalENU.U = enu.U;
-  }
-
-}
-
-void Run::setPolarCoordinates(char *str, float distance, float angle)
-{
-  if(str == "goal"){
-    goal.distance = distance;
-    goal.angle = angle;
-  }
-  else if(str == "rover"){
-    rover.distance = distance;
-    goal.angle = angle;
-  }
-}
-
-PolarCoordinates Run::ENU2PolarCoordinates(ENU enu1, ENU enu2)
-{
-  float angle, distance;
-  PolarCoordinates tmp;
-
-  angle = get_angle(enu1.E, enu1.N, enu2.E, enu2.N);
-  distance = sqrt(pow(enu2.E, 2) + pow(enu2.N, 2));
-  tmp.distance = distance;
-  tmp.angle = angle;
-
-  return(tmp);
-}
-
-ENU Run::PolarCoordinates2ENU(PolarCoordinates polar)
-{
-  ENU tmp;
-
-  tmp.E = polar.distance * cos(polar.angle*DEG_TO_RAD);
-  tmp.N = polar.distance * sin(polar.angle*DEG_TO_RAD);
-
-  return(tmp);
-}
-
-float Run::distanceOFgoal2current(GEDE current)
-{
-  ENU tmp;
-
-  tmp = GEDE2ENU(current, GOAL);
-
-  return(sqrt(pow(tmp.E, 2) + pow(tmp.N, 2)));
-}
-*/
 
 float Run::distanceOFgede2gede(GEDE origin, GEDE dest)
 {
@@ -389,174 +234,6 @@ void Run::improveCurrentCoordinates(GEDE current)
     rover.angle = correct.angle;
   }
 }
-
-floatRun::kalmanFilter_DistanceX(floataccel, floatdistance, floatdt)
-{
-  static floatx[2] = {
-    0.0, 0.0
-  };
-  static floatP[2][2] = {
-    {
-      0, 0
-    }
-    , {
-      0, 0
-    }
-  };
-  static floatK[2];
-  const  floatQ[2][2] = {
-    {
-      0.01, 0
-    }
-    , {
-      0, 0.003
-    }
-  };
-  const  floatR = 1.0;
-
-  x[1] = x[1] + 9.8 * accel * dt;
-  x[0] = x[0] + x[1] * dt;
-
-  P[0][0] += dt * (P[1][0] + dt * (P[0][1] + dt * P[1][1]) + Q[0][0]);
-  P[0][1] += dt * P[1][1];
-  P[1][0] += dt * P[1][1];
-  P[1][1] += dt * Q[1][1];
-
-  K[0] = P[0][0] / (P[0][0] + R);
-  K[1] = P[1][0] / (P[0][0] + R);
-
-  x[0] += K[0] * (distance - x[0]);
-  x[1] += K[1] * (distance - x[0]);
-
-  P[0][0] -= P[0][0] * K[0];
-  P[0][1] -= P[0][1] * K[0];
-  P[1][0] -= K[1] * P[0][0];
-  P[1][1] -= K[1] * P[0][1];
-
-  return (x[0]);
-}
-
-
-floatRun::kalmanFilter_DistanceY(floataccel, floatdistance, floatdt)
-{
-  static floatx[2] = {
-    0.0, 0.0
-  };
-  static floatP[2][2] = {
-    {
-      0, 0
-    }
-    , {
-      0, 0
-    }
-  };
-  static floatK[2];
-  const  floatQ[2][2] = {
-    {
-      0.01, 0
-    }
-    , {
-      0, 0.003
-    }
-  };
-  const  floatR = 1.0;
-
-  x[1] = x[1] + 9.8 * accel * dt;
-  x[0] = x[0] + x[1] * dt;
-
-  P[0][0] += dt * (P[1][0] + dt * (P[0][1] + dt * P[1][1]) + Q[0][0]);
-  P[0][1] += dt * P[1][1];
-  P[1][0] += dt * P[1][1];
-  P[1][1] += dt * Q[1][1];
-
-  K[0] = P[0][0] / (P[0][0] + R);
-  K[1] = P[1][0] / (P[0][0] + R);
-
-  x[0] += K[0] * (distance - x[0]);
-  x[1] += K[1] * (distance - x[0]);
-
-  P[0][0] -= P[0][0] * K[0];
-  P[0][1] -= P[0][1] * K[0];
-  P[1][0] -= K[1] * P[0][0];
-  P[1][1] -= K[1] * P[0][1];
-
-  return (x[0]);
-}
-
-void Run::rotx(floatrota[3][3], floatsita)
-{
-  rota[0][0] = 1;
-  rota[0][1] = 0;
-  rota[0][2] = 0;
-  rota[1][0] = 0;
-  rota[1][1] = cos(sita * PI / 180.0);
-  rota[1][2] = sin(sita * PI / 180.0);
-  rota[2][0] = 0;
-  rota[2][1] = -sin(sita * PI / 180.0);
-  rota[2][2] = cos(sita * PI / 180.0);
-}
-
-void Run::roty(floatrota[3][3], floatsita)
-{
-  rota[0][0] = cos(sita * PI / 180.0);
-  rota[0][1] = 0;
-  rota[0][2] = -sin(sita * PI / 180.0);
-  rota[1][0] = 0;
-  rota[1][1] = 1;
-  rota[1][2] = 0;
-  rota[2][0] = sin(sita * PI / 180.0);
-  rota[2][1] = 0;
-  rota[2][2] = cos(sita * PI / 180.0);
-}
-
-void Run::rotz(floatrota[3][3], floatsita)
-{
-  rota[0][0] = cos(sita * PI / 180.0);
-  rota[0][1] = sin(sita * PI / 180.0);
-  rota[0][2] = 0;
-  rota[1][0] = -sin(sita * PI / 180.0);
-  rota[1][1] = cos(sita * PI / 180.0);
-  rota[1][2] = 0;
-  rota[2][0] = 0;
-  rota[2][1] = 0;
-  rota[2][2] = 1;
-}
-
-
-void Run::matmat(floatc[NUM][NUM], floata[NUM][NUM], floatb[NUM][NUM])
-{
-  int i, j, k;
-  floatr, s, t;
-
-  r = 0;
-  //受け取った２つの行列の掛け算を行う。
-  for (i = 0; i < NUM; i++) {
-    for (j = 0; j < NUM; j++) {
-      for (k = 0; k < NUM; k++) {
-        t = c[i][j] + (a[i][k] * b[k][j] + r);
-        r = (a[i][k] * b[k][j] + r) - (t - c[i][j]);
-        c[i][j] = t;
-      }
-      r = 0;
-    }
-    r = 0;
-  }
-
-}
-
-
-
-ENU Run::matvec(floatmat[3][3], ECEF vector)
-{
-  ENU tmp;
-
-  tmp.E = mat[0][0] * vector.X + mat[0][1] * vector.Y + mat[0][2] * vector.Z;
-  tmp.N = mat[1][0] * vector.X + mat[1][1] * vector.Y + mat[1][2] * vector.Z;
-  tmp.U = mat[2][0] * vector.X + mat[2][1] * vector.Y + mat[2][2] * vector.Z;
-
-  return (tmp);
-}
-
 
 
 

@@ -13,7 +13,7 @@
 #define CUT_ALTITUDE       1.5  //[m]
 #define MOST_ALTITUDE      10.0  //[m]
 
-class KalmanFilter {
+class KalmanFilter{
   public:
     double getDt(void);
     double kalmanFilter_Distance(double accel, double distance, double dt);

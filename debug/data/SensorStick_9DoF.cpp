@@ -1,7 +1,6 @@
 #include <Wire.h>
 #include "SensorStick_9DoF.h"
 
-
 SensorStick_9DoF IMU;
 
 void SensorStick_9DoF::begin() {

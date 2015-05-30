@@ -1,6 +1,6 @@
 #include "Run.h"
+#include <SD.h>
 #include <wiring_private.h>
-#include <Wire.h>
 
 Run run;
 
@@ -26,6 +26,7 @@ void Run::motorInit(int LF, int LB, int RF, int RB)
 
   sbi(TCCR0A, COM0A1); //5ピンでTimer0_PWMをするためのレジスタ設定
   sbi(TCCR0A, COM0B1); //60ピンでTimer0_PWMをするためのレジスタ設定
+
 }
 
 float Run::get_lineDistance(void)
@@ -41,12 +42,6 @@ float Run::get_lineDistance(void)
 float Run::get_lineAngle(void)
 {
   return (rover.angle - goal.angle);
-}
-
-
-float Run::get_lineGyro(double gyro)
-{
-  return (last_targetValue - gyro);
 }
 
 float Run::get_angle(float vec1X, float vec1Y, float vec2X, float vec2Y)
@@ -113,15 +108,15 @@ int Run::crossProduct(float vec1X, float vec1Y, float vec2X, float vec2Y)
 
 void Run::motor_control(int motorL, int motorR)
 {
-  constrain(motorR, -254, 254);
-  constrain(motorL, -254, 254);
-
-  if (motorL == 0 && motorR == 0) {
+  motorR = constrain(motorR, -254, 254);
+  motorL = constrain(motorL, -254, 254);
+  
+  if (motorR == 0 && motorL == 0) {
     PORTD &= 0b00011111;
     PORTB &= 0b111110;
   } else {
-
-    if (motorR < 0) {
+    if (motorR < 0)
+    {
       PORTD |= _BV(7);      //digitalWrite(in1Pin, HIGH);
       OCR0A = motorR + 255; //analogWrite(in2Pin, motorR+255);
     } else {
@@ -129,17 +124,18 @@ void Run::motor_control(int motorL, int motorR)
       OCR0A = motorR;       //analogWrite(in2Pin, motorR);
     }
 
-    if (motorL < 0) {
+    if (motorL < 0)
+    {
       PORTB &= ~_BV(0);      //digitalWrite(in3Pin, HIGH);
       OCR0B = motorL + 255; //analogWrite(in4Pin, motorL+255);
     } else {
       PORTB |= _BV(0);     //digitalWrite(in3Pin, LOW);
       OCR0B = motorL;       //analogWrite(in4Pin, motorL);
     }
-    
   }
   
 }
+
 
 void Run::motor_controlVolt(float motorL, float motorR)
 {
@@ -155,28 +151,19 @@ void Run::motor_controlVolt(float motorL, float motorR)
 }
 
 
-void Run::steer(float current_value, float target_value)
+void Run::steer(void)
 {
-  const double p_gain = 0.694; //1.0; //Pゲイン
-  const double i_gain = 0.001; //0.001; //Iゲイン（多すぎると暴走します）
-  const double d_gain = 0.5; //Dゲイン
-  double control_value = 0.0;
-  double control_valueL = 0.0; //制御量（モータなどへの入力量）
-  double control_valueR = 0.0;
-  //割り込みタイマー処理(H8ならITUなど。一定周期でwループする。
-  static double last_value = 0.0; //一つ前の出力値（要保存のためstatic）
-  double error, d_error; //偏差、偏差の微小変化量
-  static double i_error = 0.0; //偏差の総和（要保存のためstatic
-
-  error = target_value - current_value; //偏差の計算
-  d_error = current_value - last_value;
-  control_value = p_gain * error + i_gain * i_error + d_gain * d_error;
-  control_valueL = (control_value < 0 ? -1 : 1) * (constrain(abs(control_value), 3, 127));
-  control_valueR = (control_value < 0 ? -1 : 1) * (constrain(abs(control_value), 3, 127) - 2);
-  motor_control(127 - control_valueL, 127 + control_valueR);
-  //制御量の計算
-  last_value = current_value; //一つ前の出力値を更新
-  i_error += error; //偏差の総和を更新
+  /*
+  static float i_err;
+  float CV_D = Kp_D*(D_command - D_input);
+  float err = CV_D - R_input;
+  float CV_R = Kp_R * err + Ki_R * i_err;
+  
+  i_err += err;
+  i_err = constrain(i_err, -100, 100);
+  
+  motor_control(T_speed + CV_R, T_speed - CV_R);
+*/
 }
 
 float Run::batt_voltage(void)
@@ -187,22 +174,34 @@ float Run::batt_voltage(void)
   return (batt_voltage);
 }
 
+float Run::getDt(void)
+{
+  static unsigned long int lastTime = 0.0;
+
+  long nowTime = micros();
+  float time = (double)(nowTime - lastTime);
+  time = max(time, 20); //timeは20[us]以上
+  time /= 1000000;  //[usec] => [sec]
+  lastTime = nowTime;
+
+  return ( time );
+}
+
 void Run::update_PolarCoordinates(GEDE current, float Dseata)
 {
   rover.distance = distanceOFgede2gede(LANDING, current);
   rover.angle = get_angle(LANDING, current);
 }
 
-void Run::update_targetValue(float gyro, double dt)
+void Run::update_targetValue(float gyro, float dt)
 {
-  const double Kd = 0.01; //Pゲイン
-  const double Ka = 0.05; //Iゲイン（多すぎると暴走します）
-  const double Kg = 0.01; //Dゲイン
+  const float Kd = 0.01; //Pゲイン
+  const float Ka = 0.05; //Iゲイン（多すぎると暴走します）
+  const float Kg = 0.01; //Dゲイン
 
   last_targetValue = gyro + dt * (-Kd * get_lineDistance() - Ka * get_lineAngle() - Kg * get_lineGyro(gyro));
   last_targetValue = constrain(last_targetValue, -70.0, 70.0);
 }
-
 
 float Run::distanceOFgede2gede(GEDE origin, GEDE dest)
 {
@@ -235,8 +234,6 @@ void Run::improveCurrentCoordinates(GEDE current)
     rover.angle = correct.angle;
   }
 }
-
-
 
 
 

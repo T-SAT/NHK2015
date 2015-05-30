@@ -1,7 +1,7 @@
 #ifndef _KALMANFILTER_H_INCLUDED
 #define _kALMANFILTER_H_INCLUDED
 
-#if defined(ARDUINO) && ARDUINO >= 100 
+#if defined(ARDUINO) && ARDUINO >= 100
 #include "Arduino.h"
 #else
 #include "WProgram.h"

@@ -1,12 +1,11 @@
 #ifndef SENSORSTICK_9DOF_H
 #define SENSORSTICK_9DOF_H
 
-#if defined(ARDUINO) && ARDUINO >= 100 
+#if defined(ARDUINO) && ARDUINO >= 100
 #include "Arduino.h"
 #else
 #include "WProgram.h"
 #endif
-
 
 #define ACC 0
 #define GYR 1

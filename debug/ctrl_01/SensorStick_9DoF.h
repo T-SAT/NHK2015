@@ -91,33 +91,33 @@ const double magSensityivity[3] = {1, 1, 1};
 #define HMC5883L_RANGE_8_1 0xe0
 
 
-class SensorStick_9DoF {
+class SensorStick_9DoF{
   public:
     void begin();
     void sensorInit(void);
     int accRead(int acc[]);
-    int accRead(int* accX, int* accY, int* accZ);
+    int accRead(int* accX,int* accY,int* accZ);
     int gyroRead(int gyro[]);
-    int gyroRead(int* gyroX, int* gyroY, int* gyroZ);
-    int gyroRead(int gyro[], int* temp);
-    int gyroRead(int* gyroX, int* gyroY, int* gyroZ, int* temp);
+    int gyroRead(int* gyroX,int* gyroY,int* gyroZ);
+    int gyroRead(int gyro[],int* temp);
+    int gyroRead(int* gyroX,int* gyroY,int* gyroZ,int* temp);
     int magRead(int mag[]);
-    int magRead(int* magX, int* magY, int* magZ);
+    int magRead(int* magX,int* magY,int* magZ);
     int receiveGyro();
     int receiveAcc();
     int receiveMag();
     int receiveAll();
-    int getRaw(char sensor, char axis);
-    double get(char sensor, char axis);
-    double getZero(char sensor, char axis);
-    int setZero(char sensor, char axis, double zero[]);
-    int setZero(double acc[], double gyro[], double mag[]);
-
+    int getRaw(char sensor,char axis);
+    double get(char sensor,char axis);
+    double getZero(char sensor,char axis);
+    int setZero(char sensor,char axis,double zero[]);
+    int setZero(double acc[],double gyro[],double mag[]);
+    
 
   private:
     void twiWrite(byte address, byte registerAddress, byte val);
     void twiWrite(byte address, byte registerAddress, byte val[], byte num);
-    int twiRead(byte address, byte registerAddress, byte output[], byte num);
+    int twiRead(byte address, byte registerAddress,byte output[], byte num);
     double _gyro[4];
     double _acc[3];
     double _mag[3];

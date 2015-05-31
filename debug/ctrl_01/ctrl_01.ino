@@ -18,6 +18,19 @@
 #define DEG2RAD (PI/180.0)
 #define RAD2DEG (180.0/PI)
 
+#define TRIGER 13
+
+#define DOG_DOUNT16   (byte)0
+#define DOG_COUNT32   (byte)1
+#define DOG_COUNT64   (byte)2
+#define DOG_COUNT125  (byte)3
+#define DOG_COUTN250  (byte)4
+#define DOG_COUNT500  (byte)5
+#define DOG_COUNT1000 (byte)6
+#define DOG_COUNT2000 (byte)7
+#define DOG_COUNT4000 (byte)8
+#define DOG_COUNT8000 (byte)9
+
 float D_command = 0.0;
 long Digree = 0.0;
 float CV_R = 0.0;
@@ -29,18 +42,11 @@ float gyroX;
 float gyroY;
 float gyroZ;
 
-typedef struct {
-  float distance;
-  float angle;
-} PolarCoordinate;
-
-typedef struct {
-  float lat;
-  float lon;
-} GEDE;
-
 void setup() {
   Serial.begin(19200);
+  pinMode(TRIGER, OUTPUT);
+  digitalWrite(TRIGER, LOW);
+  set_WDTcount(DOG_COUNT500);
   IMU.sensorInit();
   Motor::init();
 }
@@ -66,10 +72,13 @@ void loop() {
     floataccXval; //各手法による角度の導出
   */
   //IMU.receiveAcc();
+  //enable_WDT();
   IMU.receiveGyro();
   gyroX   = IMU.get(GYR, 'x') - IMU.getZero(GYR, 'x'); //オフセットぶんを差し引く
   gyroY   = IMU.get(GYR, 'y') - IMU.getZero(GYR, 'y');
   gyroZ   = IMU.get(GYR, 'z') - IMU.getZero(GYR, 'z');
+  //unable_WDT();
+  
   Serial.print("gyroZ = ");
   Serial.println(gyroZ);
   /*
@@ -90,7 +99,7 @@ void loop() {
   Digree += gyroZ;
 
   float err = D_command - Digree;
-  static long i_err;
+  static long i_err = 0;
   float CV_R = Kp_D * err + Ki_D * i_err;
   i_err += err;
   i_err = constrain(i_err, -100, 100);
@@ -119,7 +128,34 @@ void Control(void)
 
 void gede2polar(float flat, float flon, float *distance, float *angle)
 {
-  *distance =  R * acos(sin(origin_lon)*sin(flon) + cos(origin_lon)*cos(flon)*cos(flat - origin_lat));
-  *angle = 90,0 - RAD2DEG*atan2(sin(flat - origin_lat), cos(origin_lon)*tan(flon) - sin(origin_lon)*cos(flat - origin_lat));
+  *distance =  R * acos(sin(origin_lon) * sin(flon) + cos(origin_lon) * cos(flon) * cos(flat - origin_lat));
+  *angle = 90.0 - RAD2DEG * atan2(sin(flat - origin_lat), cos(origin_lon) * tan(flon) - sin(origin_lon) * cos(flat - origin_lat));
 }
+
+void enable_WDT(void)
+{
+  WDTCSR = WDTCSR | _BV(WDCE);
+  WDTCSR = WDTCSR | _BV(WDE);
+  WDTCSR = WDTCSR | _BV(WDIE);
+}
+
+void unable_WDT(void)
+{
+  WDTCSR = WDTCSR | _BV(WDCE);
+  WDTCSR = WDTCSR & !_BV(WDE);
+  WDTCSR = WDTCSR & !_BV(WDIE);
+}
+
+void set_WDTcount(byte count)
+{
+  WDTCSR = WDTCSR | _BV(WDCE);
+  WDTCSR = WDTCSR | count;
+}
+
+ISR(WDT_vect)
+{
+  digitalWrite(TRIGER, HIGH);
+  digitalWrite(TRIGER, LOW);
+}
+
 

@@ -15,11 +15,13 @@
 //PD6(d6):PWM_L (M2IN1)
 //PB0(d8):dir_L (M2IN2)
 
+
 namespace Motor{
   void init(void);	//ピンとpwm_duty上限を与えて初期化
   void run(int motor_L, int motor_R);	//pwm_dutyの設定
   void stop(void);	          //現在のpwm_dutyを出力
 };
+
 
 void Motor::init(void)
 { 
@@ -79,5 +81,6 @@ void Motor::stop(void) //ブレーキ掛けます。
   digitalWrite(8, LOW);
   analogWrite(6, 0);
 }
+
 
 #endif

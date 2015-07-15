@@ -25,6 +25,34 @@ void SensorStick_9DoF::begin() {
 
 }
 
+void SensorStick_9DoF::sensorInit(void) {
+  begin();
+  delay(1000);
+
+  double accZero[3] = { 0 }; // accX, accY, accZ
+  double gyrZero[4] = { 0 }; // gyroX, gyroY, gyroZ,gyroTemp
+  double magZero[3] = { 0 }; // magX, magY, magZ
+
+  for (int i = 0; i < 100; i++) {
+    receiveAll();
+    accZero[0] += get(ACC, 'x');
+    accZero[1] += get(ACC, 'y');
+    accZero[2] += get(ACC, 'z');
+    gyrZero[0] += get(GYR, 'x');
+    gyrZero[1] += get(GYR, 'y');
+    gyrZero[2] += get(GYR, 'z');
+    delay(10);
+  }
+  accZero[0] /= 100.0;
+  accZero[1] /= 100.0;
+  accZero[2] /= 100.0;
+  gyrZero[0] /= 100.0;
+  gyrZero[1] /= 100.0;
+  gyrZero[2] /= 100.0;
+
+  accZero[2] -= 1;  //重力加速度の除去
+  setZero(accZero, gyrZero, magZero);
+}
 
 double SensorStick_9DoF::getZero(char sensor, char axis) {
   int i = 0;
@@ -254,7 +282,7 @@ void SensorStick_9DoF::twiWrite(byte address, byte registerAddress, byte val) {
 
 void SensorStick_9DoF::twiWrite(byte address, byte registerAddress, byte val[], byte num) {
   Wire.beginTransmission(address); // start transmission to device
-  Wire.write(registerAddress);             // send register address
+  Wire.write(registerAddress);  // send register address
   for (int i = 0; i < num; i++) {
     Wire.write(val[i]);              // send value to write
   }
@@ -263,12 +291,13 @@ void SensorStick_9DoF::twiWrite(byte address, byte registerAddress, byte val[], 
 
 int SensorStick_9DoF::twiRead(byte address, byte registerAddress, byte output[], byte num) {
   Wire.beginTransmission(address); // start transmission to device
+  
   Wire.write(registerAddress);             // sends address to read from
   Wire.endTransmission();         // end transmission
 
   Wire.beginTransmission(address); // start transmission to device
   Wire.requestFrom(address, num);    // request n bytes from device
-
+  
   int i = 0;
   while (Wire.available())        // device may send less than requested (abnormal)
   {
@@ -284,3 +313,6 @@ int SensorStick_9DoF::twiRead(byte address, byte registerAddress, byte output[],
   }
   return 0;
 }
+
+
+

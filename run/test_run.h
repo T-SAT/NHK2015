@@ -8,13 +8,17 @@
 #endif
 
 #include "SoftwareTest.h"
+#include "run.h"
 
 namespace Test_run {
-  void Test_gede2polar_ErrorValueFloat(void (*target)(float *, float *, float *, float *),
-                                       float *flat_deg, float *flon_deg,
-                                       float targetVal_distance, float targetVal_angle);
-  void Test_turn_FirstTest(void (*target)(float , float , float ), float current_angle, float target_angle, float R_speed);
-  void Test_get_RotationalSpeed_FirstTest(float (*target)(void), int T_speed);
+  void Test_gede2polar_ErrorValueFloat(float *flat_deg, float *flon_deg,
+                                       float targetVal_distance_m, float targetVal_angle_deg);
+                                       
+  void Test_turn_FirstTest(float current_angle_deg, float R_speed_rps, 
+                          float target_angle_deg);
+                          
+  void Test_get_RotationalSpeed_FirstTest(int T_speed_duty, 
+                                          float target_speed_rps);
 
 };
 

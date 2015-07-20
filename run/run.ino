@@ -1,3 +1,4 @@
+#include "run.h"
 #include "SensorStick_9DoF.h"
 #include "KalmanFilter.h"
 #include "motor.h"
@@ -24,8 +25,8 @@
 /////////////////////////////////////////////////////////////////////////
 
 ///////////////////////ゴール座標と目標到達距離//////////////////////////
-#define GOAL_LAT                     35.515778  //°
-#define GOAL_LON                     134.171402  //°
+#define GOAL_LAT                     35.515808  //
+#define GOAL_LON                     134.171783  //°
 #define GOAL_DISTANCE_RANGE_MIN      0  //[m]
 #define GOAL_DISTANCE_RANGE_MAX      1.0  //[m]
 /////////////////////////////////////////////////////////////////////////
@@ -33,122 +34,133 @@
 //////////////////////制御定数//////////////////////////////////////////////
 #define Kp_R                        1.0
 #define Ki_R                        1.0
-#define Kp_D                        0.70
+#define Kp_D                        0.15
 #define Ki_D                        0.001
-#define T_speed                     50
+#define T_speed                     100.0
+#define CAUTION_GYRO                180.0
 ///////////////////////////////////////////////////////////////////////////
 
 //////////////////////ウォッチドッグタイマー関連//////////////////////////////
 #define TRIGER                      13
 /////////////////////////////////////////////////////////////////////////////
 
-typedef struct PolarCoordinate {
-  float angle;
-  float distance;
-};
-
+///////////////////座標関係//////////////////////////////////////////////
 float flat_deg[2], flon_deg[2];
-unsigned long int age_m;
-PolarCoordinate current_polar, goal_polar;
+unsigned long int age_m;  //GPSの高度
+struct PolarCoordinate current_polar, goal_polar;   //現在とゴールの極座標
+//////////////////////////////////////////////////////////////////////////
 
-float D_command = 0.0;
-long Digree = 0.0;
-float CV_R = 0.0;
+//////////////////////ジャイロ関係//////////////////////////////////////
+float gyroX_deg = 0.0;
+float gyroY_deg = 0.0;
+float gyroZ_deg = 0.0;
+///////////////////////////////////////////////////////////////////////
 
+/////////////////ウォッチドッグ変数//////////////////////////////////
 uint8_t wdt_num;
+/////////////////////////////////////////////////////////////////////
 
-double gyroX_deg;
-double gyroY_deg;
-double gyroZ_deg;
 
-SoftwareSerial ss(2, 3);
-TinyGPS gps;
+SoftwareSerial ss(2, 3); //GPS用ソフトウェアシリアル(rx:2, tx:3)
+TinyGPS gps;        
 
 void setup() {
+  int i;
+  float flat_ave_deg = 0.0;
+  float flon_ave_deg = 0.0;
 
   Serial.begin(9600);
+  ss.begin(9600);
+  IMU.sensorInit();
+  Motor::init();
 
-  /*
-    int i;
-    float flat_ave_deg = 0.0;
-    float flon_ave_deg = 0.0;
+  delay(5000);
 
-    Serial.begin(9600);
-    ss.begin(9600);
-    IMU.sensorInit();
-    Motor::init();
+/*
+  for (i = 0; i < GPS_GET_NUM; i++) {
+    recvGPS(&flat_deg[ORIGIN], &flon_deg[ORIGIN], &age_m);
+    flat_ave_deg += flat_deg[ORIGIN];
+    flon_ave_deg += flon_deg[ORIGIN];
+  }
 
-    for (i = 0; i < GPS_GET_NUM; i++) {
-      recvGPS(&flat_deg[ORIGIN], &flon_deg[ORIGIN], &age_m);
-      flat_ave_deg += flat_deg[ORIGIN];
-      flon_ave_deg += flon_deg[ORIGIN];
-    }
+  flat_deg[ORIGIN] = flat_ave_deg / GPS_GET_NUM; //緯度の平均値を計算し、原点座標に設定
+  flon_deg[ORIGIN] = flon_ave_deg / GPS_GET_NUM; //経度の平均値を計算し、原点座標に設定
 
-    flat_deg[ORIGIN] = flat_ave_deg / GPS_GET_NUM;
-    flon_deg[ORIGIN] = flon_ave_deg / GPS_GET_NUM;
+  Serial.print("origin_lat_deg = ");  Serial.println(flat_deg[ORIGIN], 6);
+  Serial.print("origin_lon_deg = ");  Serial.println(flon_deg[ORIGIN], 6);
 
-    Serial.print("origin_lat_deg = ");  Serial.println(flat_deg[ORIGIN], 6);
-    Serial.print("origin_lon_deg = ");  Serial.println(flon_deg[ORIGIN], 6);
-    Motor::run(T_speed, T_speed);
+  ////////////////duty比T_speedで前進////////////////////////////////
+  Motor::run(T_speed, T_speed);
 
-    for (i = 0; i < GPS_GET_NUM; i++) {
-      recvGPS(&flat_deg[DEST], &flon_deg[DEST], &age_m);
-    }
+  for (i = 0; i < GPS_GET_NUM; i++) {
+    recvGPS(&flat_deg[DEST], &flon_deg[DEST], &age_m);
+  }
 
-    Motor::run(0, 0);
-    delay(1000);
+  Motor::run(0, 0);
+  delay(1000);
+///////////////////////////////////////////////////////////////////////
 
-    gede2polar(flat_deg, flon_deg, &current_polar.distance, &current_polar.angle);
+  gede2polar(flat_deg, flon_deg, &current_polar.distance_m, &current_polar.angle_deg); //現在の座標を極座標に変換
 
-    flat_deg[DEST] = GOAL_LAT;
-    flon_deg[DEST] = GOAL_LON;
+  flat_deg[DEST] = GOAL_LAT;
+  flon_deg[DEST] = GOAL_LON;
 
-    gede2polar(flat_deg, flon_deg, &goal_polar.distance, &goal_polar.angle);
+  gede2polar(flat_deg, flon_deg, &goal_polar.distance_m, &goal_polar.angle_deg); //ゴールの座標を極座標に変換
 
-    turn(current_polar.angle, goal_polar.angle, get_RotationalSpeed());
-    Serial.print("goal_distance_m = ");  Serial.println(goal_polar.distance, 6);
-    Serial.print("goal_angle_deg = ");  Serial.println(goal_polar.angle, 6);
-    Serial.println("throw setup()");
-  */
+  turn(current_polar.angle_deg, goal_polar.angle_deg, get_RotationalSpeed());  //ゴールの方向へ回転
+  
+  Serial.print("goal_distance_m = ");  Serial.println(goal_polar.distance_m, 6);
+  Serial.print("goal_angle_deg = ");  Serial.println(goal_polar.angle_deg, 6);
+  Serial.println("throw setup()");
+*/
 }
 
 void loop() {
-  float flat[2], flon[2];
-  int numd = 2;
-  float numf = 2.0;
-  char numc = 1;
-
-  flat_deg[ORIGIN] = 139.74477;
-  flat_deg[DEST] = 139.74472;
-  flon_deg[ORIGIN] = 35.6544;
-  flon_deg[DEST] = 35.6539;
-  Test_run::Test_gede2polar_ErrorValueFloat(gede2polar2, flat_deg, flon_deg, 55.843, 184.645379);
-
-  /*
   int i;
   float target_angle_deg, target_distance_m;
+  float flat_cur2goal[2], flon_cur2goal[2];
+
   Serial.println("into recvGPS()");
-  recvGPS(&flat_deg[DEST], &flon_deg[DEST], &age_m);
+  for (i = 0; i < GPS_GET_NUM - 5; i++)
+    recvGPS(&flat_deg[DEST], &flon_deg[DEST], &age_m);
+
   Serial.println("throw recvGPS()");
-  //Motor::run(0, 0);
+  Motor::run(0, 0);
   delay(1000);
 
   Serial.println("into gede2polar()");
-  gede2polar(flat_deg, flon_deg, &current_polar.distance, &current_polar.angle);
-  target_angle_deg = target_distance_m = abs(goal_polar.distance - current_polar.distance);
+
+  gede2polar(flat_deg, flon_deg, &current_polar.distance_m, &current_polar.angle_deg); //現在の座標を極座標に変換
+  target_angle_deg = goal_polar.angle_deg - current_polar.angle_deg;                   //ゴールから現在の地点の角度を求める
+
+/////////////////////////現在の地点からゴールの地点までの距離を計算/////////////////////////////////////
+  flat_cur2goal[ORIGIN] = flat_deg[DEST];
+  flon_cur2goal[ORIGIN] = flon_deg[DEST];
+  flat_cur2goal[DEST] = GOAL_LAT;
+  flon_cur2goal[DEST] = GOAL_LON;
+  
+  target_distance_m = get_distanceCurrent2Goal(flat_cur2goal, flon_cur2goal);
+///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+  if (gyroZ_deg >= CAUTION_GYRO) {
+    target_angle_deg = constrain(target_angle_deg, -30.0, 30.0); //誤差を防ぐため角速度が一定値より小さかったら目標角度を制限
+  }
+  
   Serial.println("throw gede2polar()");
 
+/////////////////////////////////////////ゴール判定////////////////////////////////////////////////////
   if (GOAL_DISTANCE_RANGE_MIN <= target_distance_m && target_distance_m <= GOAL_DISTANCE_RANGE_MAX) {
     Serial.println("GOAL!");
     while (1) {
       Motor::run(0, 0);
     }
   }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  D_command = target_angle_deg;
-  //D_command = 0.0;
   //⊿tの測定 bh
-  unsigned long s_time = millis();
+  float Dt_sec = getDt_sec();
+  
   Serial.println("into receive_Gyro");
   IMU.receiveGyro();
   Serial.println("finish receive_Gyro");
@@ -156,11 +168,21 @@ void loop() {
   gyroY_deg = IMU.get(GYR, 'y') - IMU.getZero(GYR, 'y');
   gyroZ_deg = IMU.get(GYR, 'z') - IMU.getZero(GYR, 'z');
 
-  Digree += gyroZ_deg;
+  
+  Control(gyroZ_deg * Dt_sec, 90.0); //目標角度を設定
 
-  float err = D_command - Digree;
+}
+
+void Control(float current_angle_deg, float D_command_deg)
+{
+  static float Digree = 0.0;
+  
+  Digree += current_angle_deg;
+
+  float err = D_command_deg - Digree;
   static long i_err;
   float CV_R = Kp_D * err + Ki_D * i_err;
+
   i_err += err;
   i_err = constrain(i_err, -100, 100);
 
@@ -168,24 +190,6 @@ void loop() {
   Serial.println(CV_R);
 
   Motor::run(T_speed - CV_R, T_speed + CV_R);
-  */
-}
-
-void Control()
-{
-  /*
-  float CV_D = Kp_D*(D_command - dig);
-
-  float err = CV_D - gyroZ;
-  static float i_err;
-  float CV_R = Kp_R *err + Ki_R *i_err;
-  i_err += err;
-  */
-  float err = D_command - Digree;
-  static float i_err;
-  float CV_R = Kp_D * err + Ki_D * i_err;
-  i_err += err;
-  i_err = constrain(i_err, -100, 100);
 }
 
 /*FIXME: うまく値がでない
@@ -236,6 +240,17 @@ void gede2polar(float *flat_deg, float *flon_deg, float *dis_m, float *angle_deg
   *angle_deg = RAD2DEG * atan2(sin4angle1, cos4angle1 * tan4angle - sin4angle2 * cos4angle2);
 }
 
+float get_distanceCurrent2Goal(float *flat_deg, float *flon_deg)
+{
+  float dis_m;
+  float tmp;
+
+  gede2polar(flat_deg, flon_deg, &dis_m, &tmp);
+
+  return(dis_m);
+  
+}
+
 void recvGPS(float *flat, float *flon, unsigned long int *age)
 {
   bool newData = false;
@@ -272,16 +287,29 @@ void turn(float current_angle, float target_angle, float R_speed)
 
   if (0 < turn_angle) {
     Motor::run(-T_speed, T_speed);
-    delay(((turn_angle * ROVER_R) / (360.0 * WHEEL_R * R_speed)) * 1000.0);
+    delay(((abs(turn_angle) * ROVER_R) / (360.0 * WHEEL_R * R_speed)) * 1000.0);
   } else if (turn_angle < 0) {
     Motor::run(T_speed, -T_speed);
-    delay(((-turn_angle * ROVER_R) / (360 * WHEEL_R * R_speed)) * 1000.0);
+    delay(((abs(turn_angle) * ROVER_R) / (360 * WHEEL_R * R_speed)) * 1000.0);
   } else {
     Motor::run(T_speed, -T_speed);
     delay((ROVER_R / (2 * WHEEL_R * R_speed)) * 1000);
   }
 
   Motor::run(0, 0);
+}
+
+float getDt_sec(void)
+{
+  static long lastTime=0;
+  
+  long nowTime = micros();
+  float time = (double)(nowTime - lastTime);
+  time = max(time, 20);  //timeは20[us]以上
+  time /= 1000000;  //[usec] => [sec]
+  lastTime = nowTime;
+  
+  return( time );
 }
 
 ISR(WDT_vect)
